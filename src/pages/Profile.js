@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { User, Mail, Wallet, Calendar, TrendingUp, TrendingDown, BarChart3, Settings, Edit3, Shield, Award, Target, Sun, Moon } from 'lucide-react';
 import useStore from '../store/useStore'; // Adjust import path as needed
 
-const App = () => {
+const Profile = () => {
   // Get theme state and toggle function from the store
   const theme = useStore((state) => state.theme);
   const toggleTheme = useStore((state) => state.toggleTheme);
@@ -515,4 +515,4 @@ const App = () => {
   );
 };
 
-export default App;
+export default Profile;
