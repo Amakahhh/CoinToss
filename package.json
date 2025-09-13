@@ -10,7 +10,7 @@
   },
   "scripts": {
     "start": "webpack serve --mode development --open",
-    "build": "node node_modules/webpack/bin/webpack.js --mode production",
+    "build": "npx webpack --mode production",
     "dev": "webpack serve --mode development"
   },
   "dependencies": {
@@ -28,6 +28,7 @@
     "@tailwindcss/postcss": "^4.1.13",
     "autoprefixer": "^10.4.21",
     "babel-loader": "^9.1.2",
+    "copy-webpack-plugin": "^11.0.0",
     "css-loader": "^6.8.0",
     "html-webpack-plugin": "^5.5.3",
     "postcss": "^8.5.6",
@@ -36,7 +37,7 @@
     "tailwindcss": "^4.1.13",
     "webpack": "^5.88.0",
     "webpack-cli": "^5.1.4",
-    "webpack-dev-server": "^4.15.1"
+    "webpack-dev-server": "^4.15.2"
   },
   "browserslist": {
     "production": [
@@ -51,4 +52,3 @@
     ]
   }
 }
-
