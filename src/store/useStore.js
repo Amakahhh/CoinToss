@@ -64,6 +64,7 @@ const useStore = create((set, get) => ({
   chartInterval: safeGet('chartInterval','1m'), // 1m,5m,15m,1h default
   chartSymbol: safeGet('chartSymbol','BTCUSDT'), // Trading symbol for charts (no slash, matches exchange API format)
   pollingInterval: null, // For fallback polling when WebSocket fails
+  isDemoMode: false, // Shows when running in demo mode due to CORS issues
   
   // Actions
   setUser: (user) => set({ user, isAuthenticated: !!user }),

@@ -6,6 +6,13 @@ const API_BASE_URL = process.env.NODE_ENV === 'development'
   ? '' // Use relative URLs in development (webpack proxy will handle it)
   : 'https://cointoss-app-latest.onrender.com';
 
+// Check if we're in production and should use mock data due to CORS issues
+const shouldUseMockDataInProduction = () => {
+  return process.env.NODE_ENV === 'production' && 
+         (window.location.hostname.includes('vercel.app') || 
+          window.location.hostname.includes('netlify.app'));
+};
+
 // Helper function to get auth token from localStorage
 const getAuthToken = () => {
   return localStorage.getItem('accessToken');
@@ -39,10 +46,11 @@ const mockData = {
   }
 };
 
-// Check if we're in development mode and should use mock data
+// Check if we should use mock data (development or production CORS issues)
 const shouldUseMockData = () => {
-  return process.env.NODE_ENV === 'development' && 
-         (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  return (process.env.NODE_ENV === 'development' && 
+         (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) ||
+         shouldUseMockDataInProduction();
 };
 
 // Generic API request function with fallback to mock data
@@ -85,9 +93,15 @@ const apiRequest = async (endpoint, options = {}) => {
   } catch (error) {
     console.error('API Request Error:', error);
     
-    // In development, fall back to mock data for certain endpoints
+    // Fall back to mock data for development or production CORS issues
     if (shouldUseMockData()) {
-      console.warn('Using mock data due to API failure in development');
+      console.warn('Using mock data due to API failure or CORS issues');
+      
+      // Set demo mode flag in localStorage for UI indication
+      if (shouldUseMockDataInProduction()) {
+        localStorage.setItem('isDemoMode', 'true');
+      }
+      
       return getMockDataForEndpoint(endpoint, options);
     }
     

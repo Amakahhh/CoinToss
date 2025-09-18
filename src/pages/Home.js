@@ -51,8 +51,34 @@ const Home = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Check for demo mode
+  const [isDemoMode, setIsDemoMode] = useState(false);
+  
+  useEffect(() => {
+    const demoMode = localStorage.getItem('isDemoMode') === 'true';
+    setIsDemoMode(demoMode);
+  }, []);
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
+      {/* Demo Mode Banner */}
+      {isDemoMode && (
+        <div style={{
+          background: 'linear-gradient(135deg, #FF6B6B, #FF8E53)',
+          color: 'white',
+          padding: '0.75rem 1rem',
+          textAlign: 'center',
+          fontSize: '0.875rem',
+          fontWeight: '600',
+          position: 'sticky',
+          top: 0,
+          zIndex: 1000,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+        }}>
+          🚀 Demo Mode: This is a demonstration version. Some features may be limited due to CORS restrictions.
+        </div>
+      )}
+      
       {/* Hero Section */}
       <section style={{ 
         padding: 'clamp(1.5rem, 4vw, 3rem) 0', 
