@@ -23,26 +23,83 @@ const Navbar = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
-  // Fetch real crypto prices
+  // Fetch real crypto prices with rate limiting and caching
   useEffect(() => {
+    let lastFetchTime = 0;
+    const FETCH_INTERVAL = 60000; // 1 minute minimum between requests
+    const CACHE_DURATION = 300000; // 5 minutes cache
+    const CACHE_KEY = 'crypto_prices_cache';
+    
     const fetchCryptoPrices = async () => {
+      const now = Date.now();
+      
+      // Check if we should skip this fetch due to rate limiting
+      if (now - lastFetchTime < FETCH_INTERVAL) {
+        console.log('Rate limited: Skipping CoinGecko fetch');
+        return;
+      }
+      
+      // Check cache first
       try {
-        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,tether&vs_currencies=usd');
-        const data = await response.json();
-        setCryptoPrices({
-          btc: data.bitcoin.usd,
-          eth: data.ethereum.usd,
-          usdt: data.tether.usd
-        });
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (cached) {
+          const { data, timestamp } = JSON.parse(cached);
+          if (now - timestamp < CACHE_DURATION) {
+            console.log('Using cached crypto prices');
+            setCryptoPrices(data);
+            return;
+          }
+        }
       } catch (error) {
+        console.log('Cache read error:', error);
+      }
+      
+      try {
+        lastFetchTime = now;
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,tether&vs_currencies=usd', {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+          },
+          mode: 'cors'
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        const newPrices = {
+          btc: data.bitcoin?.usd || 110699.58,
+          eth: data.ethereum?.usd || 4285.21,
+          usdt: data.tether?.usd || 1.00
+        };
+        
+        setCryptoPrices(newPrices);
+        
+        // Cache the successful response
+        try {
+          localStorage.setItem(CACHE_KEY, JSON.stringify({
+            data: newPrices,
+            timestamp: now
+          }));
+        } catch (cacheError) {
+          console.log('Cache write error:', cacheError);
+        }
+        
+        console.log('Crypto prices updated successfully');
+      } catch (error) {
+        console.log('CoinGecko API error:', error.message);
         console.log('Using fallback prices');
         // Keep the default prices if API fails
       }
     };
 
+    // Initial fetch
     fetchCryptoPrices();
-    // Update prices every 30 seconds
-    const interval = setInterval(fetchCryptoPrices, 30000);
+    
+    // Update prices every 2 minutes (reduced frequency)
+    const interval = setInterval(fetchCryptoPrices, 120000);
     return () => clearInterval(interval);
   }, []);
 
