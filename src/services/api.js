@@ -1,16 +1,31 @@
 // API Service Layer for Cointoss Backend Integration
 // This file handles all communication with the backend API
 
-// Use proxy in development, direct URL in production
-const API_BASE_URL = process.env.NODE_ENV === 'development' 
+// Use proxy in development, direct URL in production (guarded for browser runtime)
+const getNodeEnv = () => {
+  try {
+    return (typeof process !== 'undefined' && process.env && process.env.NODE_ENV) ? process.env.NODE_ENV : 'production';
+  } catch (_) {
+    return 'production';
+  }
+};
+
+const NODE_ENV_SAFE = getNodeEnv();
+
+const API_BASE_URL = NODE_ENV_SAFE === 'development'
   ? '' // Use relative URLs in development (webpack proxy will handle it)
   : 'https://cointoss-app-latest.onrender.com';
 
 // Check if we're in production and should use mock data due to CORS issues
 const shouldUseMockDataInProduction = () => {
-  // Only use demo mode if explicitly enabled via environment variable
-  return process.env.REACT_APP_DEMO_MODE === 'true' || 
-         localStorage.getItem('forceDemoMode') === 'true';
+  // Only use demo mode if explicitly enabled via environment variable or localStorage flag
+  let envDemo = false;
+  try {
+    envDemo = typeof process !== 'undefined' && process.env && process.env.REACT_APP_DEMO_MODE === 'true';
+  } catch (_) {
+    envDemo = false;
+  }
+  return envDemo || localStorage.getItem('forceDemoMode') === 'true';
 };
 
 // Helper function to get auth token from localStorage
@@ -48,7 +63,7 @@ const mockData = {
 
 // Check if we should use mock data (development or production CORS issues)
 const shouldUseMockData = () => {
-  return (process.env.NODE_ENV === 'development' && 
+  return (NODE_ENV_SAFE === 'development' &&
          (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) ||
          shouldUseMockDataInProduction();
 };
@@ -73,22 +88,38 @@ const apiRequest = async (endpoint, options = {}) => {
       ...defaultHeaders,
       ...options.headers,
     },
+    mode: 'cors'
   };
 
   try {
     const response = await fetch(url, config);
-    
+
     // Handle different response types
     if (response.status === 204) {
       return { success: true }; // No content response
     }
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.error || `HTTP error! status: ${response.status}`);
+
+    const contentType = response.headers.get('content-type') || '';
+    let data;
+    if (contentType.includes('application/json')) {
+      data = await response.json();
+    } else {
+      const text = await response.text();
+      try {
+        data = JSON.parse(text);
+      } catch (_) {
+        if (!response.ok) {
+          throw new Error(text || `HTTP error! status: ${response.status}`);
+        }
+        // If OK but not JSON, return raw text
+        return text;
+      }
     }
-    
+
+    if (!response.ok) {
+      throw new Error((data && (data.error || data.message)) || `HTTP error! status: ${response.status}`);
+    }
+
     return data;
   } catch (error) {
     console.error('API Request Error:', error);
@@ -103,7 +134,7 @@ const apiRequest = async (endpoint, options = {}) => {
       console.warn('Using mock data due to API failure or CORS issues');
       
       // Set demo mode flag only for actual CORS issues
-      if (isCorsError && process.env.NODE_ENV === 'production') {
+      if (isCorsError && NODE_ENV_SAFE === 'production') {
         localStorage.setItem('isDemoMode', 'true');
         console.warn('CORS error detected - switching to demo mode');
       }
