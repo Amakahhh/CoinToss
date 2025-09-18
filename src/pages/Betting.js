@@ -22,7 +22,8 @@ const Betting = () => {
     chartInterval,
     setChartInterval,
     chartSymbol,
-    setChartSymbol
+    setChartSymbol,
+    isAuthenticated
   } = useStore();
   
   const [chartType, setChartType] = useState('line');
@@ -46,6 +47,13 @@ const Betting = () => {
   }, [startTimer]);
 
   const handleBetClick = (direction) => {
+    // Check if user is authenticated first
+    if (!isAuthenticated) {
+      alert('Please login to place bets');
+      window.location.href = '/login';
+      return;
+    }
+    
     if (activeCycle.status !== 'OPEN') {
       alert('Betting is currently closed');
       return;
@@ -56,13 +64,15 @@ const Betting = () => {
 
   const handleConfirmBet = async (amount) => {
     try {
-      placeBet({
+      await placeBet({
         direction: selectedDirection,
         amount: amount,
         cycleId: activeCycle.id
       });
       alert(`Bet placed successfully! ${selectedDirection} $${amount}`);
     } catch (error) {
+      console.error('Bet placement error:', error);
+      alert(`Failed to place bet: ${error.message}`);
       throw error;
     }
   };

@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import useStore from '../store/useStore';
 
 const SignUp = () => {
+  const { register } = useStore();
   const [formData, setFormData] = useState({
-    name: '',
+    firstName: '',
+    lastName: '',
     email: '',
     password: '',
     confirmPassword: ''
@@ -17,6 +20,8 @@ const SignUp = () => {
     hasSpecial: false,
     minLength: false
   });
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
   // Initialize Google Sign-In
@@ -49,9 +54,16 @@ const SignUp = () => {
       const payload = JSON.parse(atob(response.credential.split('.')[1]));
       console.log('Google Sign-Up successful:', payload);
       
+      // Split full name into first and last name
+      const nameParts = payload.name.split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+      
       // Store user info (in a real app, you'd send this to your backend)
       localStorage.setItem('user', JSON.stringify({
-        name: payload.name,
+        firstName: firstName,
+        lastName: lastName,
+        fullName: payload.name,
         email: payload.email,
         picture: payload.picture,
         provider: 'google'
@@ -95,25 +107,48 @@ const SignUp = () => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+    setIsLoading(true);
     
-    // Basic validation
-    if (formData.password !== formData.confirmPassword) {
-      alert('Passwords do not match!');
-      return;
-    }
+    try {
+      // Basic validation
+      if (!formData.firstName.trim() || !formData.lastName.trim()) {
+        setError('Please enter both first and last name!');
+        return;
+      }
+      
+      if (formData.password !== formData.confirmPassword) {
+        setError('Passwords do not match!');
+        return;
+      }
 
-    // Check password strength
-    const isStrongPassword = Object.values(passwordStrength).every(Boolean);
-    if (!isStrongPassword) {
-      alert('Password must meet all requirements!');
-      return;
+      // Check password strength
+      const isStrongPassword = Object.values(passwordStrength).every(Boolean);
+      if (!isStrongPassword) {
+        setError('Password must meet all requirements!');
+        return;
+      }
+      
+      // Register with backend
+      const userData = {
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        email: formData.email.trim(),
+        password: formData.password
+      };
+      
+      await register(userData);
+      
+      // Registration successful, redirect to home
+      navigate('/');
+    } catch (error) {
+      console.error('Registration error:', error);
+      setError(error.message || 'Registration failed. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
-    
-    // For now, just sign up immediately - backend integration will add validation
-    console.log('Sign up attempt:', formData);
-    navigate('/');
   };
 
   const getPasswordStrengthColor = () => {
@@ -155,41 +190,96 @@ const SignUp = () => {
           Create an Account
         </h1>
         
+        {/* Error Message */}
+        {error && (
+          <div style={{
+            background: '#FEF2F2',
+            border: '1px solid #FECACA',
+            color: '#DC2626',
+            padding: '0.75rem',
+            borderRadius: '0.5rem',
+            marginBottom: '1rem',
+            fontSize: '0.875rem',
+            fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif'
+          }}>
+            {error}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(0.75rem, 2.5vw, 1rem)' }}>
-          {/* Name Field */}
-          <div>
-            <label style={{
-              color: 'var(--accent-purple)',
-              fontSize: 'clamp(0.75rem, 2vw, 0.875rem)',
-              fontWeight: '600',
-              marginBottom: '0.375rem',
-              display: 'block',
-              fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif'
-            }}>
-              Full Name
-            </label>
-            <input
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              style={{
-                width: '100%',
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--border-color)',
-                borderRadius: 'clamp(0.375rem, 1.5vw, 0.5rem)',
-                padding: 'clamp(0.625rem, 2vw, 0.75rem)',
-                color: 'var(--text-primary)',
+          {/* Name Fields */}
+          <div style={{ display: 'flex', gap: 'clamp(0.5rem, 1.5vw, 0.75rem)' }}>
+            {/* First Name Field */}
+            <div style={{ flex: 1 }}>
+              <label style={{
+                color: 'var(--accent-purple)',
                 fontSize: 'clamp(0.75rem, 2vw, 0.875rem)',
-                fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
-                outline: 'none',
-                transition: 'all 0.3s ease'
-              }}
-              onFocus={(e) => e.target.style.borderColor = 'var(--accent-purple)'}
-              onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
-              placeholder="Enter your full name"
-              required
-            />
+                fontWeight: '600',
+                marginBottom: '0.375rem',
+                display: 'block',
+                fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif'
+              }}>
+                First Name
+              </label>
+              <input
+                type="text"
+                name="firstName"
+                value={formData.firstName}
+                onChange={handleChange}
+                style={{
+                  width: '100%',
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 'clamp(0.375rem, 1.5vw, 0.5rem)',
+                  padding: 'clamp(0.625rem, 2vw, 0.75rem)',
+                  color: 'var(--text-primary)',
+                  fontSize: 'clamp(0.75rem, 2vw, 0.875rem)',
+                  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+                  outline: 'none',
+                  transition: 'all 0.3s ease'
+                }}
+                onFocus={(e) => e.target.style.borderColor = 'var(--accent-purple)'}
+                onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
+                placeholder="First name"
+                required
+              />
+            </div>
+
+            {/* Last Name Field */}
+            <div style={{ flex: 1 }}>
+              <label style={{
+                color: 'var(--accent-purple)',
+                fontSize: 'clamp(0.75rem, 2vw, 0.875rem)',
+                fontWeight: '600',
+                marginBottom: '0.375rem',
+                display: 'block',
+                fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif'
+              }}>
+                Last Name
+              </label>
+              <input
+                type="text"
+                name="lastName"
+                value={formData.lastName}
+                onChange={handleChange}
+                style={{
+                  width: '100%',
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 'clamp(0.375rem, 1.5vw, 0.5rem)',
+                  padding: 'clamp(0.625rem, 2vw, 0.75rem)',
+                  color: 'var(--text-primary)',
+                  fontSize: 'clamp(0.75rem, 2vw, 0.875rem)',
+                  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+                  outline: 'none',
+                  transition: 'all 0.3s ease'
+                }}
+                onFocus={(e) => e.target.style.borderColor = 'var(--accent-purple)'}
+                onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
+                placeholder="Last name"
+                required
+              />
+            </div>
           </div>
 
           {/* Email Field */}
@@ -451,8 +541,9 @@ const SignUp = () => {
           {/* Sign Up Button */}
           <button 
             type="submit" 
+            disabled={isLoading}
             style={{
-              background: 'var(--accent-purple)',
+              background: isLoading ? '#9CA3AF' : 'var(--accent-purple)',
               color: '#FFFFFF',
               border: 'none',
               borderRadius: 'clamp(0.75rem, 2.5vw, 1rem)',
@@ -460,23 +551,28 @@ const SignUp = () => {
               fontSize: 'clamp(0.75rem, 2vw, 0.875rem)',
               fontWeight: '600',
               fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
-              cursor: 'pointer',
+              cursor: isLoading ? 'not-allowed' : 'pointer',
               transition: 'all 0.3s ease',
               width: '100%',
-              marginTop: 'clamp(0.25rem, 1vw, 0.5rem)'
+              marginTop: 'clamp(0.25rem, 1vw, 0.5rem)',
+              opacity: isLoading ? 0.7 : 1
             }}
             onMouseEnter={(e) => {
-              e.target.style.background = '#9333EA';
-              e.target.style.transform = 'translateY(-1px)';
-              e.target.style.boxShadow = '0 8px 20px rgba(122, 70, 236, 0.3)';
+              if (!isLoading) {
+                e.target.style.background = '#9333EA';
+                e.target.style.transform = 'translateY(-1px)';
+                e.target.style.boxShadow = '0 8px 20px rgba(122, 70, 236, 0.3)';
+              }
             }}
             onMouseLeave={(e) => {
-              e.target.style.background = 'var(--accent-purple)';
-              e.target.style.transform = 'translateY(0)';
-              e.target.style.boxShadow = 'none';
+              if (!isLoading) {
+                e.target.style.background = 'var(--accent-purple)';
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = 'none';
+              }
             }}
           >
-            Create Account
+            {isLoading ? 'Creating Account...' : 'Create Account'}
           </button>
         </form>
 

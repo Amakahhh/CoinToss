@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { authAPI, userAPI, bettingAPI, webSocketService, handleAPIError } from '../services/api';
 
 // Helpers to safely access localStorage (SSR/initial load guard)
 const safeGet = (key, fallback) => {
@@ -10,6 +11,17 @@ const safeGet = (key, fallback) => {
 };
 const persist = (key, value) => {
   try { if (typeof window !== 'undefined') window.localStorage.setItem(key, value); } catch(_) {}
+};
+
+// Helper function to calculate time remaining from pool data
+const calculateTimeRemaining = (poolData) => {
+  if (!poolData.lockTime) return 0;
+  
+  const now = new Date();
+  const lockTime = new Date(poolData.lockTime);
+  const timeDiff = Math.max(0, Math.floor((lockTime - now) / 1000));
+  
+  return timeDiff;
 };
 
 const useStore = create((set, get) => ({
@@ -48,12 +60,117 @@ const useStore = create((set, get) => ({
   showModal: false,
   modalType: null,
   modalData: null,
-  theme: 'dark', // 'light' or 'dark'
+  theme: 'light', // 'light' or 'dark'
   chartInterval: safeGet('chartInterval','1m'), // 1m,5m,15m,1h default
   chartSymbol: safeGet('chartSymbol','BTCUSDT'), // Trading symbol for charts (no slash, matches exchange API format)
+  pollingInterval: null, // For fallback polling when WebSocket fails
   
   // Actions
   setUser: (user) => set({ user, isAuthenticated: !!user }),
+
+  // Authentication actions
+  login: async (email, password) => {
+    try {
+      const response = await authAPI.login(email, password);
+      
+      // Get user profile after successful login
+      const userProfile = await authAPI.getProfile();
+      
+      // Store user data
+      const userData = {
+        id: userProfile.id,
+        firstName: userProfile.firstName,
+        lastName: userProfile.lastName,
+        email: userProfile.email,
+        balance: 100, // Default balance, will be updated from backend
+        level: 'Beginner',
+        signUpDate: new Date().toISOString(),
+        totalBets: 0,
+        winRate: 0,
+        totalWinnings: 0
+      };
+      
+      localStorage.setItem('user', JSON.stringify(userData));
+      set({ user: userData, isAuthenticated: true });
+      
+      return { success: true, user: userData };
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
+  },
+
+  register: async (userData) => {
+    try {
+      const response = await userAPI.register(userData);
+      
+      // Store user data
+      const user = {
+        id: response.id,
+        firstName: response.firstName,
+        lastName: response.lastName,
+        email: response.email,
+        balance: 100, // Default balance from backend
+        level: 'Beginner',
+        signUpDate: new Date().toISOString(),
+        totalBets: 0,
+        winRate: 0,
+        totalWinnings: 0
+      };
+      
+      localStorage.setItem('user', JSON.stringify(user));
+      set({ user, isAuthenticated: true });
+      
+      return { success: true, user };
+    } catch (error) {
+      console.error('Registration error:', error);
+      throw error;
+    }
+  },
+
+  logout: () => {
+    authAPI.logout();
+    set({ user: null, isAuthenticated: false });
+  },
+
+  // Initialize user from localStorage on app start
+  initializeAuth: () => {
+    try {
+      const storedUser = localStorage.getItem('user');
+      const token = localStorage.getItem('accessToken');
+      
+      if (storedUser && token) {
+        const user = JSON.parse(storedUser);
+        
+        // Ensure user has required properties with defaults
+        const userWithDefaults = {
+          ...user,
+          balance: user.balance || 100, // Default balance if missing
+          firstName: user.firstName || '',
+          lastName: user.lastName || '',
+          email: user.email || '',
+          level: user.level || 'Beginner',
+          signUpDate: user.signUpDate || new Date().toISOString(),
+          totalBets: user.totalBets || 0,
+          winRate: user.winRate || 0,
+          totalWinnings: user.totalWinnings || 0
+        };
+        
+        set({ user: userWithDefaults, isAuthenticated: true });
+        
+        // Verify token is still valid by getting profile
+        authAPI.getProfile().catch(() => {
+          // Token invalid, logout
+          authAPI.logout();
+          set({ user: null, isAuthenticated: false });
+        });
+      }
+    } catch (error) {
+      console.error('Auth initialization error:', error);
+      authAPI.logout();
+      set({ user: null, isAuthenticated: false });
+    }
+  },
   
   toggleTheme: () => set((state) => ({
     theme: state.theme === 'light' ? 'dark' : 'light'
@@ -76,48 +193,63 @@ const useStore = create((set, get) => ({
     transactions: [transaction, ...state.transactions]
   })),
   
-  placeBet: (bet) => set((state) => {
-    const newBet = {
-      id: Date.now(),
-      ...bet,
-      timestamp: new Date().toISOString(),
-      status: 'PENDING',
-      userPercentage: 0 // Will be calculated
-    };
-    
-    const newBalance = state.balance - bet.amount;
-    const newTransaction = {
-      id: Date.now(),
-      type: 'BET',
-      amount: -bet.amount,
-      description: `Bet ${bet.amount} USDT on ${bet.direction}`,
-      timestamp: new Date().toISOString()
-    };
-    
-    // Update pools
-    const updatedUpBets = bet.direction === 'UP' ? [...state.activeCycle.upBets, newBet] : state.activeCycle.upBets;
-    const updatedDownBets = bet.direction === 'DOWN' ? [...state.activeCycle.downBets, newBet] : state.activeCycle.downBets;
-    
-    const newUpPool = updatedUpBets.reduce((sum, b) => sum + b.amount, 0);
-    const newDownPool = updatedDownBets.reduce((sum, b) => sum + b.amount, 0);
-    
-    // Calculate user's percentage in the pool they bet on
-    const userPool = bet.direction === 'UP' ? newUpPool : newDownPool;
-    const userPercentage = userPool > 0 ? (bet.amount / userPool) * 100 : 0;
-    
-    return {
-      currentBets: [...state.currentBets, newBet],
-      balance: newBalance,
-      transactions: [newTransaction, ...state.transactions],
-      activeCycle: {
-        ...state.activeCycle,
-        upPool: newUpPool,
-        downPool: newDownPool,
-        upBets: updatedUpBets,
-        downBets: updatedDownBets
-      }
-    };
-  }),
+  placeBet: async (bet) => {
+    try {
+      // Get current pool from backend
+      const currentPool = await bettingAPI.getCurrentPool();
+      
+      // Place bet with backend
+      const response = await bettingAPI.placeBet(currentPool.id, bet.amount, bet.direction);
+      
+      // Update local state with backend response
+      const newBet = {
+        id: response.id || Date.now(),
+        ...bet,
+        timestamp: new Date().toISOString(),
+        status: 'PENDING',
+        userPercentage: 0 // Will be calculated
+      };
+      
+      const newBalance = state.balance - bet.amount;
+      const newTransaction = {
+        id: Date.now(),
+        type: 'BET',
+        amount: -bet.amount,
+        description: `Bet ${bet.amount} USDT on ${bet.direction}`,
+        timestamp: new Date().toISOString()
+      };
+      
+      // Update pools with backend data
+      const updatedUpBets = bet.direction === 'UP' ? [...state.activeCycle.upBets, newBet] : state.activeCycle.upBets;
+      const updatedDownBets = bet.direction === 'DOWN' ? [...state.activeCycle.downBets, newBet] : state.activeCycle.downBets;
+      
+      // Use backend pool totals
+      const newUpPool = currentPool.totalUpPool || 0;
+      const newDownPool = currentPool.totalDownPool || 0;
+      
+      // Calculate user's percentage in the pool they bet on
+      const userPool = bet.direction === 'UP' ? newUpPool : newDownPool;
+      const userPercentage = userPool > 0 ? (bet.amount / userPool) * 100 : 0;
+      
+      set((state) => ({
+        currentBets: [...state.currentBets, newBet],
+        balance: newBalance,
+        transactions: [newTransaction, ...state.transactions],
+        activeCycle: {
+          ...state.activeCycle,
+          upPool: newUpPool,
+          downPool: newDownPool,
+          upBets: updatedUpBets,
+          downBets: updatedDownBets
+        }
+      }));
+      
+      return { success: true, bet: newBet };
+    } catch (error) {
+      console.error('Place bet error:', error);
+      throw error;
+    }
+  },
   
   settleBets: (result) => set((state) => {
     const winningPool = result === 'UP' ? state.activeCycle.upPool : state.activeCycle.downPool;
@@ -207,6 +339,127 @@ const useStore = create((set, get) => ({
   updateActiveCycle: (updates) => set((state) => ({
     activeCycle: { ...state.activeCycle, ...updates }
   })),
+
+  // Load current pool from backend
+  loadCurrentPool: async () => {
+    try {
+      const poolData = await bettingAPI.getCurrentPool();
+      
+      // Convert backend pool data to frontend format
+      const activeCycle = {
+        id: poolData.id,
+        market: poolData.assetPair || 'BTC/USDT',
+        status: poolData.status,
+        timeRemaining: calculateTimeRemaining(poolData),
+        totalCycleTime: 600, // 10 minutes total
+        openTime: 300, // First 5 minutes for betting
+        lockedTime: 300, // Last 5 minutes for settlement
+        upPool: poolData.totalUpPool || 0,
+        downPool: poolData.totalDownPool || 0,
+        upBets: [], // Individual bets not provided by backend
+        downBets: [], // Individual bets not provided by backend
+        currentPrice: poolData.startPrice || 110699.58,
+        startPrice: poolData.startPrice || 110699.58,
+        endPrice: poolData.endPrice,
+        result: null, // Will be set when pool closes
+        cyclePhase: poolData.status === 'OPEN' ? 'OPEN' : 'LOCKED'
+      };
+      
+      set({ activeCycle });
+      return activeCycle;
+    } catch (error) {
+      console.error('Load current pool error:', error);
+      throw error;
+    }
+  },
+
+  // Initialize WebSocket connection for real-time updates
+  initializeWebSocket: async () => {
+    try {
+      console.log('Attempting to initialize WebSocket connection...');
+      await webSocketService.connect();
+      
+      // Subscribe to pool updates
+      const currentPool = await bettingAPI.getCurrentPool();
+      webSocketService.subscribeToPool(currentPool.id, (update) => {
+        set((state) => ({
+          activeCycle: {
+            ...state.activeCycle,
+            upPool: update.totalUpPool,
+            downPool: update.totalDownPool
+          }
+        }));
+      });
+      
+      console.log('WebSocket connection established successfully');
+    } catch (error) {
+      console.error('WebSocket initialization error:', error);
+      console.log('Falling back to polling for real-time updates...');
+      
+      // Fallback to polling when WebSocket fails
+      get().startPollingForUpdates();
+    }
+  },
+
+  // Fallback polling mechanism when WebSocket fails
+  startPollingForUpdates: () => {
+    console.log('Starting polling fallback for real-time updates...');
+    
+    // Poll every 5 seconds for pool updates
+    const pollInterval = setInterval(async () => {
+      try {
+        const poolData = await bettingAPI.getCurrentPool();
+        set((state) => ({
+          activeCycle: {
+            ...state.activeCycle,
+            upPool: poolData.totalUpPool || 0,
+            downPool: poolData.totalDownPool || 0,
+            currentPrice: poolData.currentPrice || state.activeCycle.currentPrice
+          }
+        }));
+      } catch (error) {
+        console.error('Polling error:', error);
+        // If polling also fails, simulate some data changes for demo purposes
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Simulating pool updates for demo...');
+          set((state) => ({
+            activeCycle: {
+              ...state.activeCycle,
+              upPool: state.activeCycle.upPool + Math.random() * 10,
+              downPool: state.activeCycle.downPool + Math.random() * 10,
+              currentPrice: state.activeCycle.currentPrice + (Math.random() - 0.5) * 100
+            }
+          }));
+        }
+      }
+    }, 5000);
+    
+    // Store the interval ID so we can clear it later
+    set({ pollingInterval: pollInterval });
+  },
+
+  // Stop polling when WebSocket becomes available
+  stopPolling: () => {
+    const state = get();
+    if (state.pollingInterval) {
+      clearInterval(state.pollingInterval);
+      set({ pollingInterval: null });
+      console.log('Stopped polling fallback');
+    }
+  },
+
+  // Cleanup function to stop all connections
+  cleanup: () => {
+    // Stop WebSocket connection
+    if (webSocketService.isWebSocketAvailable()) {
+      webSocketService.disconnect();
+    }
+    
+    // Stop polling
+    get().stopPolling();
+    
+    console.log('Cleaned up all connections');
+  },
   
   setCurrentPage: (page) => set({ currentPage: page }),
   

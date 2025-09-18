@@ -1,11 +1,18 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import useStore from '../store/useStore';
 import PerformanceHistory from '../components/PerformanceHistory';
-import { Target, TrendingUp, Wallet, Award } from 'lucide-react';
+import { Target, TrendingUp, Wallet, Award, BarChart3, Calendar, FileText, AlertCircle } from 'lucide-react';
 import Sparkline from '../components/Sparkline';
 
 const History = () => {
-  const { currentBets, transactions, theme } = useStore();
+  const { currentBets, transactions, theme, isAuthenticated, user, balance } = useStore();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      window.location.href = '/login';
+    }
+  }, [isAuthenticated]);
 
   // Derive performance-style daily aggregates from transactions (BET + WIN) as fallback
   const performanceData = useMemo(() => {
@@ -129,6 +136,79 @@ const History = () => {
     return points;
   }, [transactions]);
 
+  // Empty state components
+  const EmptyState = ({ icon: Icon, title, description, actionText, onAction }) => (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '3rem 2rem',
+      textAlign: 'center',
+      background: 'var(--card-bg)',
+      borderRadius: '1rem',
+      border: '1px solid var(--glass-border)',
+      margin: '2rem 0'
+    }}>
+      <div style={{
+        width: '4rem',
+        height: '4rem',
+        borderRadius: '50%',
+        background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-purple))',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: '1.5rem',
+        opacity: 0.8
+      }}>
+        <Icon size={24} color="white" />
+      </div>
+      <h3 style={{
+        fontSize: '1.25rem',
+        fontWeight: '600',
+        color: 'var(--text-primary)',
+        marginBottom: '0.5rem'
+      }}>
+        {title}
+      </h3>
+      <p style={{
+        fontSize: '0.875rem',
+        color: 'var(--text-secondary)',
+        marginBottom: '1.5rem',
+        maxWidth: '300px',
+        lineHeight: '1.5'
+      }}>
+        {description}
+      </p>
+      {actionText && onAction && (
+        <button
+          onClick={onAction}
+          style={{
+            background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-purple))',
+            color: 'white',
+            border: 'none',
+            borderRadius: '0.5rem',
+            padding: '0.75rem 1.5rem',
+            fontSize: '0.875rem',
+            fontWeight: '600',
+            cursor: 'pointer',
+            transition: 'all 0.3s ease'
+          }}
+          onMouseOver={(e) => {
+            e.target.style.transform = 'translateY(-2px)';
+            e.target.style.boxShadow = '0 8px 25px rgba(59, 130, 246, 0.3)';
+          }}
+          onMouseOut={(e) => {
+            e.target.style.transform = 'translateY(0)';
+            e.target.style.boxShadow = 'none';
+          }}
+        >
+          {actionText}
+        </button>
+      )}
+    </div>
+  );
+
   const tabButtonStyle = (tab) => ({
     padding: '.75rem 1.25rem',
     borderRadius: '0.75rem',
@@ -157,8 +237,18 @@ const History = () => {
 
         {activeTab === 'performance' && (
           <>
-            {/* Stats Row */}
-            <div style={{ display: 'grid', gap: '1rem', marginBottom: '2rem', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+            {transactions.length === 0 ? (
+              <EmptyState
+                icon={BarChart3}
+                title="No Performance Data"
+                description="Start placing bets to build your performance history and see detailed analytics."
+                actionText="Start Betting"
+                onAction={() => window.location.href = '/betting'}
+              />
+            ) : (
+              <>
+                {/* Stats Row */}
+                <div style={{ display: 'grid', gap: '1rem', marginBottom: '2rem', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
               <div className="stat-card" style={{ borderRadius: '1rem', padding: '1.25rem', border: '1px solid var(--glass-border)', background: 'var(--card-bg)', boxShadow: '0 8px 32px var(--shadow)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', marginBottom: '.25rem' }}>
                   <Target style={{ width: '1rem', height: '1rem', color: 'var(--accent-green)' }} />
@@ -221,6 +311,8 @@ const History = () => {
               </div>
             </div>
             <PerformanceHistory data={performanceData} emptyMessage={transactions.length === 0 ? 'Place your first bet to build history' : 'No performance entries yet'} />
+              </>
+            )}
           </>
         )}
 
@@ -258,7 +350,15 @@ const History = () => {
                 <tbody>
                   {paginated.length === 0 && (
                     <tr>
-                      <td colSpan={4} style={{ padding: '1rem .75rem', textAlign: 'center', color: 'var(--text-secondary)' }}>No transactions found.</td>
+                      <td colSpan={4} style={{ padding: '0' }}>
+                        <EmptyState
+                          icon={FileText}
+                          title="No Transactions Yet"
+                          description="You haven't made any transactions yet. Start betting to see your history here."
+                          actionText="Start Betting"
+                          onAction={() => window.location.href = '/betting'}
+                        />
+                      </td>
                     </tr>
                   )}
                   {paginated.map(tx => {
@@ -294,6 +394,10 @@ const History = () => {
 };
 
 export default History;
+
+
+
+
 
 
 

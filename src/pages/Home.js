@@ -106,7 +106,7 @@ const Home = () => {
             margin: '0 auto'
           }}>
             <Link 
-              to="/signup" 
+              to="/betting" 
               className="btn btn-primary"
               style={{
                 background: 'linear-gradient(135deg, #8B5CF6 0%, #3B82F6 100%)',

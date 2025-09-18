@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import useStore from '../store/useStore';
 
 const Login = () => {
+  const { login } = useStore();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
   // Initialize Google Sign-In
@@ -71,10 +75,29 @@ const Login = () => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Login attempt:', formData);
-    navigate('/');
+    setError('');
+    setIsLoading(true);
+    
+    try {
+      // Basic validation
+      if (!formData.email || !formData.password) {
+        setError('Please fill in all fields!');
+        return;
+      }
+      
+      // Login with backend
+      await login(formData.email.trim(), formData.password);
+      
+      // Login successful, redirect to home
+      navigate('/');
+    } catch (error) {
+      console.error('Login error:', error);
+      setError(error.message || 'Login failed. Please check your credentials.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -108,6 +131,22 @@ const Login = () => {
           Welcome Back
         </h1>
         
+        {/* Error Message */}
+        {error && (
+          <div style={{
+            background: '#FEF2F2',
+            border: '1px solid #FECACA',
+            color: '#DC2626',
+            padding: '0.75rem',
+            borderRadius: '0.5rem',
+            marginBottom: '1rem',
+            fontSize: '0.875rem',
+            fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif'
+          }}>
+            {error}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(0.75rem, 2.5vw, 1rem)' }}>
           {/* Email Field */}
           <div>
@@ -238,8 +277,9 @@ const Login = () => {
           {/* Login Button */}
           <button 
             type="submit" 
+            disabled={isLoading}
             style={{
-              background: 'var(--accent-purple)',
+              background: isLoading ? '#9CA3AF' : 'var(--accent-purple)',
               color: '#FFFFFF',
               border: 'none',
               borderRadius: 'clamp(0.75rem, 2.5vw, 1rem)',
@@ -247,23 +287,28 @@ const Login = () => {
               fontSize: 'clamp(0.75rem, 2vw, 0.875rem)',
               fontWeight: '600',
               fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
-              cursor: 'pointer',
+              cursor: isLoading ? 'not-allowed' : 'pointer',
               transition: 'all 0.3s ease',
               width: '100%',
-              marginTop: 'clamp(0.25rem, 1vw, 0.5rem)'
+              marginTop: 'clamp(0.25rem, 1vw, 0.5rem)',
+              opacity: isLoading ? 0.7 : 1
             }}
             onMouseEnter={(e) => {
-              e.target.style.background = '#9333EA';
-              e.target.style.transform = 'translateY(-1px)';
-              e.target.style.boxShadow = '0 8px 20px rgba(122, 70, 236, 0.3)';
+              if (!isLoading) {
+                e.target.style.background = '#9333EA';
+                e.target.style.transform = 'translateY(-1px)';
+                e.target.style.boxShadow = '0 8px 20px rgba(122, 70, 236, 0.3)';
+              }
             }}
             onMouseLeave={(e) => {
-              e.target.style.background = 'var(--accent-purple)';
-              e.target.style.transform = 'translateY(0)';
-              e.target.style.boxShadow = 'none';
+              if (!isLoading) {
+                e.target.style.background = 'var(--accent-purple)';
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = 'none';
+              }
             }}
           >
-            Log In
+            {isLoading ? 'Logging In...' : 'Log In'}
           </button>
         </form>
 

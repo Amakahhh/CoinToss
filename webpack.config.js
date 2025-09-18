@@ -71,7 +71,32 @@ module.exports = {
     port: 3000,
     hot: true,
     open: true,
-    historyApiFallback: true
+    historyApiFallback: true,
+    // Add CORS proxy for development
+    proxy: {
+      '/api': {
+        target: 'https://cointoss-app-latest.onrender.com',
+        changeOrigin: true,
+        secure: true,
+        logLevel: 'debug',
+        onProxyReq: (proxyReq, req, res) => {
+          console.log(`[PROXY] ${req.method} ${req.url} -> ${proxyReq.path}`);
+        },
+        onProxyRes: (proxyRes, req, res) => {
+          console.log(`[PROXY] Response: ${proxyRes.statusCode} for ${req.url}`);
+        },
+        onError: (err, req, res) => {
+          console.error(`[PROXY ERROR] ${err.message} for ${req.url}`);
+        }
+      },
+      '/ws': {
+        target: 'https://cointoss-app-latest.onrender.com',
+        changeOrigin: true,
+        secure: true,
+        ws: true,
+        logLevel: 'debug'
+      }
+    }
   },
   resolve: {
     extensions: ['.js', '.jsx']

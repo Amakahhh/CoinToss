@@ -3,11 +3,9 @@ import { ArrowUp, ArrowDown, Wallet, TrendingUp } from "lucide-react";
 import useStore from "../store/useStore";
 
 const WalletComponent = () => {
-  // Get theme from store (for any logic that needs it)
-  const theme = useStore((state) => state.theme);
-  
+  const { isAuthenticated, user, balance, transactions } = useStore();
   const [currency, setCurrency] = useState('USDT');
-  const [displayBalance, setDisplayBalance] = useState(100);
+  const [displayBalance, setDisplayBalance] = useState(balance);
   
   // Exchange rates (simulated for demonstration)
   const exchangeRates = {
@@ -17,26 +15,39 @@ const WalletComponent = () => {
     'NGN': 1500,
   };
 
-  // Apply theme to document element when component mounts or theme changes
+  // Apply light theme on mount (theme toggle hidden)
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
+    document.documentElement.setAttribute('data-theme', 'light');
+  }, []);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      window.location.href = '/login';
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     // Update balance when currency changes
-    const baseBalanceUSDT = 100;
+    const baseBalanceUSDT = balance;
     const newBalance = baseBalanceUSDT * exchangeRates[currency];
     setDisplayBalance(newBalance);
-  }, [currency]);
+  }, [currency, balance]);
 
-  const transactions = [
-    { type: "Withdrawal", time: "06:24:45 AM", amount: -5.42, status: "Pending" },
-    { type: "Top-up", time: "08:24:45 AM", amount: 55.53, status: "Completed" },
-    { type: "Withdrawal", time: "06:24:45 AM", amount: -9.12, status: "Canceled" },
-    { type: "Top-up", time: "08:24:45 AM", amount: 77.62, status: "Completed" },
-    { type: "Top-up", time: "08:24:45 AM", amount: 55.53, status: "Completed" },
-    { type: "Withdrawal", time: "06:24:45 AM", amount: -9.12, status: "Canceled" },
-  ];
+  // Convert store transactions to display format
+  const displayTransactions = React.useMemo(() => {
+    return transactions.map(t => ({
+      type: t.type === 'BET' ? 'Bet' : t.type === 'WIN' ? 'Winning' : t.type,
+      time: new Date(t.timestamp).toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit',
+        hour12: true 
+      }),
+      amount: t.amount,
+      status: t.status || 'Completed'
+    }));
+  }, [transactions]);
 
   const getCurrencySymbol = (code) => {
     switch (code) {
@@ -410,7 +421,7 @@ const WalletComponent = () => {
           </div>
           <div className="balance-growth">
             <TrendingUp size={18} style={{ color: '#86EFAC' }} />
-            <span>+7.2% from last week</span>
+            <span>Real-time balance</span>
           </div>
         </div>
 
@@ -437,11 +448,11 @@ const WalletComponent = () => {
             </div>
           </div>
           <div>
-            {transactions.map((transaction, index) => (
+            {displayTransactions.map((transaction, index) => (
               <div key={index} className="transaction-item">
                 <div className="transaction-left">
-                  <div className={`transaction-icon ${transaction.type === 'Withdrawal' ? 'withdrawal' : 'deposit'}`}>
-                    {transaction.type === 'Withdrawal' ? <ArrowDown size={20} /> : <ArrowUp size={20} />}
+                  <div className={`transaction-icon ${transaction.amount < 0 ? 'withdrawal' : 'deposit'}`}>
+                    {transaction.amount < 0 ? <ArrowDown size={20} /> : <ArrowUp size={20} />}
                   </div>
                   <div className="transaction-details">
                     <h4>{transaction.type}</h4>

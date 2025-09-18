@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Sun, Moon } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import useStore from '../store/useStore';
+// import { Sun, Moon } from 'lucide-react'; // Removed as theme toggle is hidden
 
 const Navbar = () => {
   const location = useLocation();
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const navigate = useNavigate();
+  const { isAuthenticated, logout } = useStore();
+  // isDarkMode state removed as theme toggle is hidden
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [cryptoPrices, setCryptoPrices] = useState({
     btc: 110699.58,
@@ -14,11 +17,7 @@ const Navbar = () => {
 
   const isActive = (path) => location.pathname === path;
 
-  const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode);
-    // Apply theme to document
-    document.documentElement.setAttribute('data-theme', isDarkMode ? 'light' : 'dark');
-  };
+  // toggleTheme function removed as theme toggle is hidden
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
@@ -47,10 +46,10 @@ const Navbar = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Apply theme on mount
+  // Apply theme on mount - default to light mode
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
-  }, [isDarkMode]);
+    document.documentElement.setAttribute('data-theme', 'light');
+  }, []);
 
   return (
     <>
@@ -368,89 +367,132 @@ const Navbar = () => {
 
           {/* Right Side Actions */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <Link 
-              to="/login" 
-              style={{
-                color: 'var(--text-primary)',
-                padding: 'clamp(0.5rem, 1.2vw, 0.75rem) clamp(0.75rem, 2vw, 1rem)',
-                borderRadius: '0.75rem',
-                textDecoration: 'none',
-                fontSize: 'clamp(0.75rem, 1.5vw, 0.875rem)',
-                fontFamily: 'Rubik, -apple-system, BlinkMacSystemFont, sans-serif',
-                fontWeight: '600',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                whiteSpace: 'nowrap',
-                flexShrink: 0,
-                background: 'transparent',
-                border: '2px solid var(--border-color)',
-                position: 'relative',
-                overflow: 'hidden'
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.color = 'var(--accent-purple)';
-                e.target.style.background = 'var(--bg-tertiary)';
-                e.target.style.borderColor = 'var(--accent-purple)';
-                e.target.style.transform = 'translateY(-2px)';
-                e.target.style.boxShadow = '0 8px 25px var(--shadow)';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.color = 'var(--text-primary)';
-                e.target.style.background = 'transparent';
-                e.target.style.borderColor = 'var(--border-color)';
-                e.target.style.transform = 'translateY(0)';
-                e.target.style.boxShadow = 'none';
-              }}
-              onMouseDown={(e) => {
-                e.target.style.transform = 'translateY(0) scale(0.98)';
-              }}
-              onMouseUp={(e) => {
-                e.target.style.transform = 'translateY(-2px) scale(1)';
-              }}
-            >
-                  Login
-                </Link>
-            <Link 
-              to="/signup" 
-              style={{
-                background: 'var(--text-accent)',
-                color: 'white',
-                padding: 'clamp(0.5rem, 1.2vw, 0.75rem) clamp(0.75rem, 2vw, 1rem)',
-                borderRadius: '0.75rem',
-                textDecoration: 'none',
-                fontWeight: '700',
-                fontSize: 'clamp(0.75rem, 1.5vw, 0.875rem)',
-                whiteSpace: 'nowrap',
-                flexShrink: 0,
-                fontFamily: 'Rubik, -apple-system, BlinkMacSystemFont, sans-serif',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                border: 'none',
-                cursor: 'pointer',
-                position: 'relative',
-                overflow: 'hidden',
-                boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)',
-                transform: 'translateY(0)'
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.background = '#9333EA';
-                e.target.style.transform = 'translateY(-3px)';
-                e.target.style.boxShadow = '0 12px 30px rgba(139, 92, 246, 0.4)';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.background = 'var(--text-accent)';
-                e.target.style.transform = 'translateY(0)';
-                e.target.style.boxShadow = '0 4px 12px rgba(139, 92, 246, 0.3)';
-              }}
-              onMouseDown={(e) => {
-                e.target.style.transform = 'translateY(-1px) scale(0.98)';
-              }}
-              onMouseUp={(e) => {
-                e.target.style.transform = 'translateY(-3px) scale(1)';
-              }}
-            >
-              Sign Up
-                </Link>
-            <button 
-              onClick={toggleTheme}
+            {isAuthenticated ? (
+              <button
+                onClick={() => {
+                  logout();
+                  navigate('/');
+                }}
+                style={{
+                  background: '#EF4444',
+                  color: 'white',
+                  padding: 'clamp(0.5rem, 1.2vw, 0.75rem) clamp(0.75rem, 2vw, 1rem)',
+                  borderRadius: '0.75rem',
+                  textDecoration: 'none',
+                  fontWeight: '700',
+                  fontSize: 'clamp(0.75rem, 1.5vw, 0.875rem)',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  fontFamily: 'Rubik, -apple-system, BlinkMacSystemFont, sans-serif',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)',
+                  transform: 'translateY(0)'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.background = '#DC2626';
+                  e.target.style.transform = 'translateY(-3px)';
+                  e.target.style.boxShadow = '0 12px 30px rgba(239, 68, 68, 0.4)';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = '#EF4444';
+                  e.target.style.transform = 'translateY(0)';
+                  e.target.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.3)';
+                }}
+              >
+                Logout
+              </button>
+            ) : (
+              <Link 
+                to="/login" 
+                style={{
+                  color: 'var(--text-primary)',
+                  padding: 'clamp(0.5rem, 1.2vw, 0.75rem) clamp(0.75rem, 2vw, 1rem)',
+                  borderRadius: '0.75rem',
+                  textDecoration: 'none',
+                  fontSize: 'clamp(0.75rem, 1.5vw, 0.875rem)',
+                  fontFamily: 'Rubik, -apple-system, BlinkMacSystemFont, sans-serif',
+                  fontWeight: '600',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  background: 'transparent',
+                  border: '2px solid var(--border-color)',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.color = 'var(--accent-purple)';
+                  e.target.style.background = 'var(--bg-tertiary)';
+                  e.target.style.borderColor = 'var(--accent-purple)';
+                  e.target.style.transform = 'translateY(-2px)';
+                  e.target.style.boxShadow = '0 8px 25px var(--shadow)';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.color = 'var(--text-primary)';
+                  e.target.style.background = 'transparent';
+                  e.target.style.borderColor = 'var(--border-color)';
+                  e.target.style.transform = 'translateY(0)';
+                  e.target.style.boxShadow = 'none';
+                }}
+                onMouseDown={(e) => {
+                  e.target.style.transform = 'translateY(0) scale(0.98)';
+                }}
+                onMouseUp={(e) => {
+                  e.target.style.transform = 'translateY(-2px) scale(1)';
+                }}
+              >
+                Login
+              </Link>
+            )}
+            {!isAuthenticated && (
+              <Link 
+                to="/signup" 
+                style={{
+                  background: 'var(--text-accent)',
+                  color: 'white',
+                  padding: 'clamp(0.5rem, 1.2vw, 0.75rem) clamp(0.75rem, 2vw, 1rem)',
+                  borderRadius: '0.75rem',
+                  textDecoration: 'none',
+                  fontWeight: '700',
+                  fontSize: 'clamp(0.75rem, 1.5vw, 0.875rem)',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  fontFamily: 'Rubik, -apple-system, BlinkMacSystemFont, sans-serif',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)',
+                  transform: 'translateY(0)'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.background = '#9333EA';
+                  e.target.style.transform = 'translateY(-3px)';
+                  e.target.style.boxShadow = '0 12px 30px rgba(139, 92, 246, 0.4)';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = 'var(--text-accent)';
+                  e.target.style.transform = 'translateY(0)';
+                  e.target.style.boxShadow = '0 4px 12px rgba(139, 92, 246, 0.3)';
+                }}
+                onMouseDown={(e) => {
+                  e.target.style.transform = 'translateY(-1px) scale(0.98)';
+                }}
+                onMouseUp={(e) => {
+                  e.target.style.transform = 'translateY(-3px) scale(1)';
+                }}
+              >
+                Sign Up
+              </Link>
+            )}
+            {/* Theme toggle button hidden as requested */}
+            {/* <button 
+              onClick={() => {}}
               style={{
                 background: 'var(--bg-secondary)',
                 border: '2px solid var(--border-color)',
@@ -493,7 +535,7 @@ const Navbar = () => {
               ) : (
                 <Moon className="w-5 h-5" />
               )}
-            </button>
+            </button> */}
             
             {/* Mobile Menu Button */}
             <button 

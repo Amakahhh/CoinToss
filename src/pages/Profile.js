@@ -1,55 +1,188 @@
-import React, { useEffect } from 'react';
-import { User, Mail, Wallet, Calendar, TrendingUp, TrendingDown, BarChart3, Settings, Edit3, Shield, Award, Target, Sun, Moon } from 'lucide-react';
-import useStore from '../store/useStore'; // Adjust import path as needed
+import React, { useEffect, useState } from 'react';
+import { User, Mail, Wallet, Calendar, TrendingUp, TrendingDown, BarChart3, Settings, Edit3, Shield, Award, Target, Coins } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import useStore from '../store/useStore';
+import { userAPI } from '../services/api';
 
 const Profile = () => {
-  // Get theme state and toggle function from the store
-  const theme = useStore((state) => state.theme);
-  const toggleTheme = useStore((state) => state.toggleTheme);
+  const { user, isAuthenticated, logout, currentBets, transactions, balance } = useStore();
+  const navigate = useNavigate();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState({
+    firstName: '',
+    lastName: '',
+    email: ''
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  // Apply theme to document element when component mounts or theme changes
+  // Apply light theme on mount (theme toggle hidden)
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
+    document.documentElement.setAttribute('data-theme', 'light');
+  }, []);
 
-  const user = {
-    name: 'John Doe',
-    email: 'john.doe@example.com',
-    balance: 1250.75,
-    signUpDate: '2024-01-15',
-    totalBets: 47,
-    winRate: 68.5,
-    totalWinnings: 3420.50,
-    level: 'Expert Trader',
-    avatar: null
+  // Initialize edit data when user data is available
+  useEffect(() => {
+    if (user) {
+      setEditData({
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        email: user.email || ''
+      });
+    }
+  }, [user]);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      window.location.href = '/login';
+    }
+  }, [isAuthenticated]);
+
+  const handleEdit = () => {
+    setIsEditing(true);
   };
 
-  const performanceData = [
-    { date: '2024-01-15', bets: 3, wins: 2, amount: 150.00, profit: 45.50 },
-    { date: '2024-01-16', bets: 5, wins: 4, amount: 300.00, profit: 120.00 },
-    { date: '2024-01-17', bets: 2, wins: 1, amount: 100.00, profit: -25.00 },
-    { date: '2024-01-18', bets: 4, wins: 3, amount: 200.00, profit: 75.00 },
-    { date: '2024-01-19', bets: 6, wins: 4, amount: 400.00, profit: 80.00 },
-    { date: '2024-01-20', bets: 3, wins: 2, amount: 150.00, profit: 30.00 },
-    { date: '2024-01-21', bets: 4, wins: 3, amount: 250.00, profit: 95.00 },
-  ];
+  const handleSave = async () => {
+    if (!user?.id) return;
+    
+    setIsLoading(true);
+    setError('');
+    
+    try {
+      // Update username if changed
+      if (editData.firstName !== user.firstName || editData.lastName !== user.lastName) {
+        await userAPI.updateUsername(user.id, editData.firstName, editData.lastName);
+      }
+      
+      // Update email if changed
+      if (editData.email !== user.email) {
+        await userAPI.updateEmail(user.id, editData.email);
+      }
+      
+      // Update local user data
+      const updatedUser = {
+        ...user,
+        firstName: editData.firstName,
+        lastName: editData.lastName,
+        email: editData.email
+      };
+      
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      window.location.reload(); // Refresh to update the UI
+      
+    } catch (error) {
+      console.error('Update error:', error);
+      setError(error.message || 'Failed to update profile');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const recentBets = [
-    { id: 1, direction: 'UP', amount: 50.00, result: 'win', profit: 15.25, time: '2 hours ago' },
-    { id: 2, direction: 'DOWN', amount: 75.00, result: 'loss', profit: -75.00, time: '4 hours ago' },
-    { id: 3, direction: 'UP', amount: 100.00, result: 'win', profit: 30.50, time: '6 hours ago' },
-    { id: 4, direction: 'DOWN', amount: 25.00, result: 'win', profit: 8.75, time: '8 hours ago' },
-  ];
+  const handleCancel = () => {
+    setEditData({
+      firstName: user?.firstName || '',
+      lastName: user?.lastName || '',
+      email: user?.email || ''
+    });
+    setIsEditing(false);
+    setError('');
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setEditData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  if (!user) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '50vh',
+        color: 'var(--text-primary)'
+      }}>
+        Loading...
+      </div>
+    );
+  }
+
+  // Calculate performance data from real transactions
+  const performanceData = React.useMemo(() => {
+    const grouped = {};
+    transactions.forEach(t => {
+      if (t.type === 'BET' || t.type === 'WIN') {
+        const day = new Date(t.timestamp).toISOString().slice(0,10);
+        if (!grouped[day]) grouped[day] = { date: day, bets: 0, wins: 0, amount: 0, profit: 0 };
+        if (t.type === 'BET') {
+          grouped[day].bets += 1;
+          grouped[day].amount += Math.abs(t.amount);
+          grouped[day].profit -= Math.abs(t.amount);
+        }
+        if (t.type === 'WIN') {
+          grouped[day].wins += 1;
+          grouped[day].profit += t.amount;
+        }
+      }
+    });
+    return Object.values(grouped).sort((a,b) => new Date(b.date) - new Date(a.date));
+  }, [transactions]);
+
+  // Get recent bets from currentBets
+  const recentBets = React.useMemo(() => {
+    return currentBets.slice(0, 4).map(bet => ({
+      id: bet.id,
+      direction: bet.direction,
+      amount: bet.amount,
+      result: bet.result || 'pending',
+      profit: bet.profit || 0,
+      time: bet.timestamp ? new Date(bet.timestamp).toLocaleString() : 'Recently'
+    }));
+  }, [currentBets]);
+
+  // Calculate real stats from user data
+  const userStats = React.useMemo(() => {
+    const totalBets = currentBets.length;
+    const wonBets = currentBets.filter(bet => bet.result === 'win').length;
+    const winRate = totalBets > 0 ? Math.round((wonBets / totalBets) * 100) : 0;
+    const totalWinnings = currentBets.reduce((sum, bet) => sum + (bet.profit || 0), 0);
+    
+    return {
+      totalBets,
+      winRate,
+      totalWinnings
+    };
+  }, [currentBets]);
 
   const quickActions = [
-    { icon: Wallet, label: 'Deposit', action: 'deposit' },
-    { icon: TrendingUp, label: 'Withdraw', action: 'withdraw' },
+    { icon: Wallet, label: 'Wallet', action: 'wallet' },
+    { icon: BarChart3, label: 'History', action: 'history' },
     { icon: Settings, label: 'Settings', action: 'settings' },
-    { icon: Shield, label: 'Security', action: 'security' },
+    { icon: Coins, label: 'Bet', action: 'bet' },
   ];
 
   const handleQuickAction = (action) => {
-    console.log(`Quick action: ${action}`);
+    switch (action) {
+      case 'wallet':
+        navigate('/wallet');
+        break;
+      case 'history':
+        navigate('/history');
+        break;
+      case 'settings':
+        // For now, just show a message since we don't have a settings page
+        alert('Settings page coming soon!');
+        break;
+      case 'bet':
+        navigate('/betting');
+        break;
+      default:
+        console.log(`Quick action: ${action}`);
+    }
   };
 
   return (
@@ -312,21 +445,63 @@ const Profile = () => {
             </p>
           </div>
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-            <button className="edit-button">
-              <Edit3 style={{ width: '1rem', height: '1rem' }} />
-              Edit Profile
-            </button>
-            <button className="theme-toggle" onClick={toggleTheme}>
-              {theme === 'light' ? 
-                <Moon style={{ width: '1rem', height: '1rem' }} /> : 
-                <Sun style={{ width: '1rem', height: '1rem' }} />
-              }
-            </button>
+            {isEditing ? (
+              <>
+                <button 
+                  className="edit-button" 
+                  onClick={handleSave}
+                  disabled={isLoading}
+                  style={{ 
+                    background: 'var(--accent-green)',
+                    color: 'white',
+                    opacity: isLoading ? 0.7 : 1,
+                    cursor: isLoading ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {isLoading ? 'Saving...' : 'Save Changes'}
+                </button>
+                <button 
+                  className="edit-button" 
+                  onClick={handleCancel}
+                  disabled={isLoading}
+                  style={{ 
+                    background: 'var(--accent-red)',
+                    color: 'white',
+                    opacity: isLoading ? 0.7 : 1,
+                    cursor: isLoading ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <button className="edit-button" onClick={handleEdit}>
+                <Edit3 style={{ width: '1rem', height: '1rem' }} />
+                Edit Profile
+              </button>
+            )}
+            {/* Theme toggle button hidden as requested */}
           </div>
         </div>
       </div>
 
       <div className="container">
+        {/* Error Message */}
+        {error && (
+          <div style={{
+            background: '#FEF2F2',
+            border: '1px solid #FECACA',
+            color: '#DC2626',
+            padding: '0.75rem',
+            borderRadius: '0.5rem',
+            marginBottom: '1rem',
+            fontSize: '0.875rem',
+            fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif'
+          }}>
+            {error}
+          </div>
+        )}
+
         <div className="grid-container">
           {/* Left Column - Profile Info & Quick Actions */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -345,10 +520,49 @@ const Profile = () => {
                   <User style={{ width: '3rem', height: '3rem', color: 'white' }} />
                 </div>
                 <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.25rem', color: 'var(--text-primary)' }}>
-                  {user.name}
+                  {isEditing ? (
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <input
+                        type="text"
+                        name="firstName"
+                        value={editData.firstName}
+                        onChange={handleChange}
+                        style={{
+                          background: 'var(--bg-secondary)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '0.375rem',
+                          padding: '0.5rem',
+                          color: 'var(--text-primary)',
+                          fontSize: '1.5rem',
+                          fontWeight: 'bold',
+                          width: '120px'
+                        }}
+                        placeholder="First Name"
+                      />
+                      <input
+                        type="text"
+                        name="lastName"
+                        value={editData.lastName}
+                        onChange={handleChange}
+                        style={{
+                          background: 'var(--bg-secondary)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '0.375rem',
+                          padding: '0.5rem',
+                          color: 'var(--text-primary)',
+                          fontSize: '1.5rem',
+                          fontWeight: 'bold',
+                          width: '120px'
+                        }}
+                        placeholder="Last Name"
+                      />
+                    </div>
+                  ) : (
+                    `${user.firstName} ${user.lastName}`
+                  )}
                 </h2>
                 <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                  {user.level}
+                  {user.level || 'Beginner'}
                 </p>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', marginTop: '0.5rem' }}>
                   <Award style={{ width: '1rem', height: '1rem', color: 'var(--accent-gold)' }} />
@@ -361,20 +575,39 @@ const Profile = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                   <Mail style={{ width: '1.25rem', height: '1.25rem', color: 'var(--accent-purple)' }} />
-                  <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                    {user.email}
-                  </span>
+                  {isEditing ? (
+                    <input
+                      type="email"
+                      name="email"
+                      value={editData.email}
+                      onChange={handleChange}
+                      style={{
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '0.375rem',
+                        padding: '0.5rem',
+                        color: 'var(--text-primary)',
+                        fontSize: '0.875rem',
+                        flex: 1
+                      }}
+                      placeholder="Email"
+                    />
+                  ) : (
+                    <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                      {user.email}
+                    </span>
+                  )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                   <Calendar style={{ width: '1.25rem', height: '1.25rem', color: 'var(--accent-purple)' }} />
                   <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                    Joined {new Date(user.signUpDate).toLocaleDateString()}
+                    Joined {user.signUpDate ? new Date(user.signUpDate).toLocaleDateString() : 'Recently'}
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                   <Wallet style={{ width: '1.25rem', height: '1.25rem', color: 'var(--accent-purple)' }} />
                   <span style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--text-primary)' }}>
-                    ${user.balance.toFixed(2)}
+                    ${(user.balance || 0).toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -398,6 +631,43 @@ const Profile = () => {
                 ))}
               </div>
             </div>
+
+            {/* Logout Button */}
+            <div className="card">
+              <button
+                onClick={() => {
+                  logout();
+                  navigate('/');
+                }}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem 1rem',
+                  background: 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '0.5rem',
+                  fontSize: '0.875rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem'
+                }}
+                onMouseOver={(e) => {
+                  e.target.style.transform = 'translateY(-2px)';
+                  e.target.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.3)';
+                }}
+                onMouseOut={(e) => {
+                  e.target.style.transform = 'translateY(0)';
+                  e.target.style.boxShadow = 'none';
+                }}
+              >
+                <Shield style={{ width: '1rem', height: '1rem' }} />
+                Logout
+              </button>
+            </div>
           </div>
 
           {/* Right Column - Performance & History */}
@@ -412,7 +682,7 @@ const Profile = () => {
                   </span>
                 </div>
                 <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-                  {user.totalBets}
+                  {userStats.totalBets}
                 </p>
               </div>
               <div className="stat-card">
@@ -423,7 +693,7 @@ const Profile = () => {
                   </span>
                 </div>
                 <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-                  {user.winRate}%
+                  {userStats.winRate}%
                 </p>
               </div>
               <div className="stat-card">
@@ -434,7 +704,7 @@ const Profile = () => {
                   </span>
                 </div>
                 <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-                  ${user.totalWinnings.toFixed(2)}
+                  ${userStats.totalWinnings.toFixed(2)}
                 </p>
               </div>
             </div>
@@ -516,3 +786,4 @@ const Profile = () => {
 };
 
 export default Profile;
+

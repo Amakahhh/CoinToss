@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -11,8 +11,23 @@ import Overview from './pages/Overview';
 import History from './pages/History';
 import FAQ from './pages/FAQ';
 import Profile from './pages/Profile';
+import useStore from './store/useStore';
 
 function App() {
+  const { initializeAuth, initializeWebSocket, loadCurrentPool } = useStore();
+
+  // Initialize authentication and WebSocket on app start
+  useEffect(() => {
+    // Initialize authentication
+    initializeAuth();
+    
+    // Load current pool data
+    loadCurrentPool().catch(console.error);
+    
+    // Initialize WebSocket for real-time updates
+    initializeWebSocket().catch(console.error);
+  }, [initializeAuth, initializeWebSocket, loadCurrentPool]);
+
   return (
     <Router>
       <div className="min-h-screen">

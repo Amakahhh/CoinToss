@@ -1,6 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 const FAQ = () => {
+  // FAQ state
+  const [openFAQ, setOpenFAQ] = useState(null);
+
+  const toggleFAQ = (index) => {
+    setOpenFAQ(openFAQ === index ? null : index);
+  };
+
   const faqs = [
     {
       question: "What currencies can i use?",
@@ -17,25 +24,77 @@ const FAQ = () => {
   ];
 
   return (
-    <div className="min-h-screen py-16 px-4">
-      <div className="container max-w-4xl">
-        <h1 className="text-5xl font-bold text-white text-center mb-16">
-          Frequently Asked Questions
-        </h1>
-        
-        <div className="space-y-6">
-          {faqs.map((faq, index) => (
-            <div key={index} className="card">
-              <h3 className="text-xl font-semibold text-blue mb-4">
-                {faq.question}
-              </h3>
-              <p className="text-gray-300">
-                {faq.answer}
-              </p>
-            </div>
-          ))}
+    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
+      {/* FAQ Section */}
+      <section style={{ 
+        padding: 'clamp(2rem, 6vw, 4rem) 0', 
+        background: 'var(--bg-primary)'
+      }}>
+        <div style={{ 
+          maxWidth: '1200px', 
+          margin: '0 auto', 
+          padding: '0 1rem' 
+        }}>
+          <h2 style={{ 
+            color: 'var(--text-primary)', 
+            fontSize: 'clamp(1.25rem, 3.5vw, 2rem)', 
+            fontWeight: '700', 
+            marginBottom: 'clamp(1.5rem, 4vw, 2.5rem)',
+            textAlign: 'center'
+          }}>
+            Frequently Asked Questions
+          </h2>
+          
+          {/* FAQ Items */}
+          <div style={{ 
+            display: 'flex', 
+            flexDirection: 'column',
+            gap: 'clamp(1rem, 2.5vw, 1.5rem)',
+            maxWidth: '800px',
+            margin: '0 auto'
+          }}>
+            {/* FAQ Items */}
+            {faqs.map((faq, index) => (
+              <div 
+                key={index}
+                style={{
+                  background: 'var(--faq-bg)',
+                  borderRadius: 'clamp(0.75rem, 2vw, 1rem)',
+                  padding: 'clamp(1.25rem, 3vw, 1.75rem)',
+                  border: '1px solid var(--border-color)',
+                  boxShadow: '0 2px 4px var(--shadow)',
+                  transition: 'all 0.3s ease',
+                  cursor: 'pointer'
+                }}
+                onClick={() => toggleFAQ(index)}
+              >
+                <h3 style={{ 
+                  color: '#21C3FD', 
+                  fontSize: 'clamp(1rem, 2.5vw, 1.25rem)', 
+                  fontWeight: '700',
+                  marginBottom: openFAQ === index ? 'clamp(0.5rem, 1.5vw, 0.75rem)' : 0,
+                  fontFamily: 'Rubik, -apple-system, BlinkMacSystemFont, sans-serif',
+                  transition: 'margin-bottom 0.3s ease'
+                }}>
+                  {faq.question}
+                </h3>
+                {openFAQ === index && (
+                  <p style={{ 
+                    color: 'var(--text-primary)', 
+                    fontSize: 'clamp(0.875rem, 2vw, 1rem)',
+                    lineHeight: '1.5',
+                    margin: 0,
+                    fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+                    animation: 'fadeIn 0.3s ease-in'
+                  }}>
+                    {faq.answer}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 };
