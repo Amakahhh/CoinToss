@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { testBackendConnection, getVercelUrl } from '../services/api';
 
 const Home = () => {
   // Live predictions state
@@ -53,11 +54,24 @@ const Home = () => {
 
   // Check for demo mode
   const [isDemoMode, setIsDemoMode] = useState(false);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
   
   useEffect(() => {
     const demoMode = localStorage.getItem('isDemoMode') === 'true';
     setIsDemoMode(demoMode);
   }, []);
+
+  const handleTestConnection = async () => {
+    setIsTestingConnection(true);
+    const success = await testBackendConnection();
+    if (success) {
+      setIsDemoMode(false);
+      window.location.reload(); // Refresh to use real data
+    } else {
+      alert('Backend connection failed. Please check your server configuration.');
+    }
+    setIsTestingConnection(false);
+  };
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
@@ -73,9 +87,40 @@ const Home = () => {
           position: 'sticky',
           top: 0,
           zIndex: 1000,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '1rem',
+          flexWrap: 'wrap'
         }}>
-          🚀 Demo Mode: This is a demonstration version. Some features may be limited due to CORS restrictions.
+          <span>🚀 Demo Mode: Using mock data due to backend connection issues. Backend needs CORS configuration for {getVercelUrl()}</span>
+          <button
+            onClick={handleTestConnection}
+            disabled={isTestingConnection}
+            style={{
+              background: 'rgba(255,255,255,0.2)',
+              border: '1px solid rgba(255,255,255,0.3)',
+              color: 'white',
+              padding: '0.5rem 1rem',
+              borderRadius: '0.5rem',
+              fontSize: '0.75rem',
+              fontWeight: '600',
+              cursor: isTestingConnection ? 'not-allowed' : 'pointer',
+              opacity: isTestingConnection ? 0.7 : 1,
+              transition: 'all 0.3s ease'
+            }}
+            onMouseOver={(e) => {
+              if (!isTestingConnection) {
+                e.target.style.background = 'rgba(255,255,255,0.3)';
+              }
+            }}
+            onMouseOut={(e) => {
+              e.target.style.background = 'rgba(255,255,255,0.2)';
+            }}
+          >
+            {isTestingConnection ? 'Testing...' : 'Test Backend Connection'}
+          </button>
         </div>
       )}
       

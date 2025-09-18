@@ -8,9 +8,9 @@ const API_BASE_URL = process.env.NODE_ENV === 'development'
 
 // Check if we're in production and should use mock data due to CORS issues
 const shouldUseMockDataInProduction = () => {
-  return process.env.NODE_ENV === 'production' && 
-         (window.location.hostname.includes('vercel.app') || 
-          window.location.hostname.includes('netlify.app'));
+  // Only use demo mode if explicitly enabled via environment variable
+  return process.env.REACT_APP_DEMO_MODE === 'true' || 
+         localStorage.getItem('forceDemoMode') === 'true';
 };
 
 // Helper function to get auth token from localStorage
@@ -93,13 +93,19 @@ const apiRequest = async (endpoint, options = {}) => {
   } catch (error) {
     console.error('API Request Error:', error);
     
-    // Fall back to mock data for development or production CORS issues
+    // Check if this is a CORS error specifically
+    const isCorsError = error.message.includes('CORS') || 
+                        error.message.includes('fetch') || 
+                        error.message.includes('blocked');
+    
+    // Fall back to mock data for development or explicit demo mode
     if (shouldUseMockData()) {
       console.warn('Using mock data due to API failure or CORS issues');
       
-      // Set demo mode flag in localStorage for UI indication
-      if (shouldUseMockDataInProduction()) {
+      // Set demo mode flag only for actual CORS issues
+      if (isCorsError && process.env.NODE_ENV === 'production') {
         localStorage.setItem('isDemoMode', 'true');
+        console.warn('CORS error detected - switching to demo mode');
       }
       
       return getMockDataForEndpoint(endpoint, options);
@@ -107,6 +113,34 @@ const apiRequest = async (endpoint, options = {}) => {
     
     throw error;
   }
+};
+
+// Test backend connection
+export const testBackendConnection = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/bets/current-pool`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (response.ok) {
+      // Backend is working, clear demo mode
+      localStorage.removeItem('isDemoMode');
+      localStorage.removeItem('forceDemoMode');
+      console.log('Backend connection successful - demo mode cleared');
+      return true;
+    }
+  } catch (error) {
+    console.log('Backend connection failed:', error.message);
+  }
+  return false;
+};
+
+// Get your Vercel URL for backend CORS configuration
+export const getVercelUrl = () => {
+  return 'https://coin-toss-tw57.vercel.app';
 };
 
 // Get mock data based on endpoint
