@@ -12,9 +12,45 @@ const getNodeEnv = () => {
 
 const NODE_ENV_SAFE = getNodeEnv();
 
-const API_BASE_URL = NODE_ENV_SAFE === 'development'
-  ? '' // Use relative URLs in development (webpack proxy will handle it)
-  : 'https://cointoss-app-latest.onrender.com';
+// More robust environment detection
+const isDevelopment = () => {
+  // Check multiple conditions for development
+  if (typeof window !== 'undefined') {
+    return window.location.hostname === 'localhost' || 
+           window.location.hostname === '127.0.0.1' ||
+           window.location.hostname.includes('localhost');
+  }
+  return NODE_ENV_SAFE === 'development';
+};
+
+// Get API base URL with environment variable support
+const getApiBaseUrl = () => {
+  // Check for environment variable first
+  try {
+    if (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_BASE_URL) {
+      return process.env.REACT_APP_API_BASE_URL;
+    }
+  } catch (_) {
+    // Ignore if process is not available
+  }
+  
+  // Fallback to default logic
+  return isDevelopment()
+    ? '' // Use relative URLs in development (webpack proxy will handle it)
+    : 'https://cointoss-app-latest.onrender.com';
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
+// Debug logging for API URL
+console.log('🔧 API Configuration Debug:', {
+  NODE_ENV: NODE_ENV_SAFE,
+  isDevelopment: isDevelopment(),
+  API_BASE_URL: API_BASE_URL,
+  hostname: typeof window !== 'undefined' ? window.location.hostname : 'server-side',
+  origin: typeof window !== 'undefined' ? window.location.origin : 'server-side',
+  envVar: typeof process !== 'undefined' && process.env ? process.env.REACT_APP_API_BASE_URL : 'not available'
+});
 
 // Check if we're in production and should use mock data due to CORS issues
 const shouldUseMockDataInProduction = () => {
@@ -72,6 +108,16 @@ const shouldUseMockData = () => {
 const apiRequest = async (endpoint, options = {}) => {
   const url = `${API_BASE_URL}${endpoint}`;
   const token = getAuthToken();
+  
+  // Enhanced debugging for API requests
+  console.log('🌐 API Request Debug:', {
+    endpoint,
+    fullUrl: url,
+    method: options.method || 'GET',
+    hasToken: !!token,
+    API_BASE_URL,
+    isDevelopment: isDevelopment()
+  });
   
   const defaultHeaders = {
     'Content-Type': 'application/json',
@@ -148,23 +194,46 @@ const apiRequest = async (endpoint, options = {}) => {
 
 // Test backend connection
 export const testBackendConnection = async () => {
+  const testUrl = `${API_BASE_URL}/bets/current-pool`;
+  
+  console.log('🔍 Testing Backend Connection:', {
+    testUrl,
+    API_BASE_URL,
+    isDevelopment: isDevelopment(),
+    hostname: typeof window !== 'undefined' ? window.location.hostname : 'server-side'
+  });
+  
   try {
-    const response = await fetch(`${API_BASE_URL}/api/bets/current-pool`, {
+    const response = await fetch(testUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       },
+      mode: 'cors'
+    });
+
+    console.log('📡 Backend Response:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      url: response.url
     });
     
     if (response.ok) {
       // Backend is working, clear demo mode
       localStorage.removeItem('isDemoMode');
       localStorage.removeItem('forceDemoMode');
-      console.log('Backend connection successful - demo mode cleared');
+      console.log('✅ Backend connection successful - demo mode cleared');
       return true;
+    } else {
+      console.warn('⚠️ Backend responded but not OK:', response.status, response.statusText);
     }
   } catch (error) {
-    console.log('Backend connection failed:', error.message);
+    console.error('❌ Backend connection failed:', {
+      message: error.message,
+      name: error.name,
+      stack: error.stack
+    });
   }
   return false;
 };
@@ -303,12 +372,12 @@ export const userAPI = {
 export const bettingAPI = {
   // Get current betting pool
   getCurrentPool: async () => {
-    return await apiRequest('/api/bets/current-pool');
+    return await apiRequest('/bets/current-pool');
   },
 
   // Place a bet
   placeBet: async (poolId, amount, direction) => {
-    return await apiRequest('/api/bets', {
+    return await apiRequest('/bets', {
       method: 'POST',
       body: JSON.stringify({
         poolId,

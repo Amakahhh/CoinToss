@@ -14,19 +14,24 @@ import Profile from './pages/Profile';
 import useStore from './store/useStore';
 
 function App() {
-  const { initializeAuth, initializeWebSocket, loadCurrentPool } = useStore();
+  const { initializeAuth, initializeWebSocket, loadCurrentPool, isAuthenticated } = useStore();
 
   // Initialize authentication and WebSocket on app start
   useEffect(() => {
-    // Initialize authentication
+    // Initialize authentication first
     initializeAuth();
-    
-    // Load current pool data
-    loadCurrentPool().catch(console.error);
-    
-    // Initialize WebSocket for real-time updates
-    initializeWebSocket().catch(console.error);
-  }, [initializeAuth, initializeWebSocket, loadCurrentPool]);
+  }, [initializeAuth]);
+
+  // Load pool data and initialize WebSocket only after authentication is checked
+  useEffect(() => {
+    if (isAuthenticated) {
+      // Load current pool data only if user is authenticated
+      loadCurrentPool().catch(console.error);
+      
+      // Initialize WebSocket for real-time updates only if user is authenticated
+      initializeWebSocket().catch(console.error);
+    }
+  }, [isAuthenticated, loadCurrentPool, initializeWebSocket]);
 
   return (
     <Router>

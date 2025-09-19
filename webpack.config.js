@@ -89,6 +89,60 @@ module.exports = {
           console.error(`[PROXY ERROR] ${err.message} for ${req.url}`);
         }
       },
+      '/auth': {
+        target: 'https://cointoss-app-latest.onrender.com',
+        changeOrigin: true,
+        secure: true,
+        logLevel: 'debug',
+        pathRewrite: {
+          '^/auth': '/api/auth'
+        },
+        onProxyReq: (proxyReq, req, res) => {
+          console.log(`[PROXY] ${req.method} ${req.url} -> ${proxyReq.path}`);
+        },
+        onProxyRes: (proxyRes, req, res) => {
+          console.log(`[PROXY] Response: ${proxyRes.statusCode} for ${req.url}`);
+        },
+        onError: (err, req, res) => {
+          console.error(`[PROXY ERROR] ${err.message} for ${req.url}`);
+        }
+      },
+      '/users': {
+        target: 'https://cointoss-app-latest.onrender.com',
+        changeOrigin: true,
+        secure: true,
+        logLevel: 'debug',
+        pathRewrite: {
+          '^/users': '/api/users'
+        },
+        onProxyReq: (proxyReq, req, res) => {
+          console.log(`[PROXY] ${req.method} ${req.url} -> ${proxyReq.path}`);
+        },
+        onProxyRes: (proxyRes, req, res) => {
+          console.log(`[PROXY] Response: ${proxyRes.statusCode} for ${req.url}`);
+        },
+        onError: (err, req, res) => {
+          console.error(`[PROXY ERROR] ${err.message} for ${req.url}`);
+        }
+      },
+      '/bets': {
+        target: 'https://cointoss-app-latest.onrender.com',
+        changeOrigin: true,
+        secure: true,
+        logLevel: 'debug',
+        pathRewrite: {
+          '^/bets': '/api/bets'
+        },
+        onProxyReq: (proxyReq, req, res) => {
+          console.log(`[PROXY] ${req.method} ${req.url} -> ${proxyReq.path}`);
+        },
+        onProxyRes: (proxyRes, req, res) => {
+          console.log(`[PROXY] Response: ${proxyRes.statusCode} for ${req.url}`);
+        },
+        onError: (err, req, res) => {
+          console.error(`[PROXY ERROR] ${err.message} for ${req.url}`);
+        }
+      },
       '/ws': {
         target: 'https://cointoss-app-latest.onrender.com',
         changeOrigin: true,

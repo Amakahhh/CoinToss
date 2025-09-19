@@ -332,7 +332,7 @@ const Footer = () => {
       </div>
       
       {/* Responsive CSS */}
-      <style jsx>{`
+      <style>{`
         @media (max-width: 768px) {
           .footer-main-content {
             flex-direction: column !important;
