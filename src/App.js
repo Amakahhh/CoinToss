@@ -24,12 +24,21 @@ function App() {
 
   // Load pool data and initialize WebSocket only after authentication is checked
   useEffect(() => {
-    if (isAuthenticated) {
+    // Only proceed if user is authenticated AND we have a valid token
+    if (isAuthenticated && localStorage.getItem('accessToken')) {
+      console.log('User is authenticated, loading pool data and initializing WebSocket');
+      
       // Load current pool data only if user is authenticated
-      loadCurrentPool().catch(console.error);
+      loadCurrentPool().catch((error) => {
+        console.warn('Failed to load pool data:', error);
+      });
       
       // Initialize WebSocket for real-time updates only if user is authenticated
-      initializeWebSocket().catch(console.error);
+      initializeWebSocket().catch((error) => {
+        console.warn('Failed to initialize WebSocket:', error);
+      });
+    } else {
+      console.log('User not authenticated, skipping pool data and WebSocket initialization');
     }
   }, [isAuthenticated, loadCurrentPool, initializeWebSocket]);
 

@@ -157,14 +157,19 @@ const useStore = create((set, get) => ({
           totalWinnings: user.totalWinnings || 0
         };
         
+        // Set user as authenticated first
         set({ user: userWithDefaults, isAuthenticated: true });
         
-        // Verify token is still valid by getting profile
-        authAPI.getProfile().catch(() => {
+        // Verify token is still valid by getting profile (async, don't block)
+        authAPI.getProfile().catch((error) => {
+          console.warn('Token validation failed:', error);
           // Token invalid, logout
           authAPI.logout();
           set({ user: null, isAuthenticated: false });
         });
+      } else {
+        // No stored user or token, ensure clean state
+        set({ user: null, isAuthenticated: false });
       }
     } catch (error) {
       console.error('Auth initialization error:', error);
